@@ -17,7 +17,7 @@
 #include "coop/net/send_backlog.h"         // the reliable-send delivery guarantee
 #include "coop/net/send_rate_control.h"    // what each peer's link measures out at
 #include "coop/net/stream_refusals.h"      // refused pose packets, said once per streak
-#include "coop/player/players_registry.h"  // kMaxPeers (host + 3 clients = 4)
+#include "coop/player/players_registry.h"  // kMaxPeers (host + 4 clients = 5)
 
 #include <array>
 #include <atomic>
@@ -32,7 +32,7 @@
 
 namespace coop::net {
 
-// kMaxPeers (the host + 3 clients) is coop::players::kMaxPeers; the alias sizes this header's
+// kMaxPeers (the host + 4 clients) is coop::players::kMaxPeers; the alias sizes this header's
 // arrays.
 inline constexpr uint8_t kMaxPeers = coop::players::kMaxPeers;
 

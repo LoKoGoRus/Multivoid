@@ -41,7 +41,7 @@ namespace sg  = ue_wrap::script_gate;
 using coop::net::PowerGridPayload;
 using coop::net::kPowerGridGenerators;
 
-static_assert(coop::net::kMaxPeers <= 4, "PowerGridPayload::ack holds four slots");
+static_assert(coop::net::kMaxPeers <= 5, "PowerGridPayload::ack holds five slots");
 static_assert(coop::net::kMaxPeers <= 8, "the owed rows are one bit a slot");
 static_assert(kInputBurst >= coop::net::kPowerPuzzleFields, "a flush of every held field fits one burst");
 

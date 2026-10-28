@@ -39,7 +39,7 @@ namespace R  = ue_wrap::reflection;
 namespace sg = ue_wrap::script_gate;
 using coop::net::CoordTowerPayload;
 
-static_assert(coop::net::kMaxPeers <= 4, "CoordTowerPayload's acknowledgements hold four slots");
+static_assert(coop::net::kMaxPeers <= 5, "CoordTowerPayload's acknowledgements hold five slots");
 
 constexpr wchar_t kTowerClass[] = L"coordRadarDish_C";
 // A slot's ops wait, in arrival order, while the towers have not resolved, their sender has no body here yet (a

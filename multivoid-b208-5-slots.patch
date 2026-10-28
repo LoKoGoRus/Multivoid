@@ -1,0 +1,265 @@
+diff --git a/src/votv-coop/include/coop/net/protocol.h b/src/votv-coop/include/coop/net/protocol.h
+index a44dfb1f9..35e835e0e 100644
+--- a/src/votv-coop/include/coop/net/protocol.h
++++ b/src/votv-coop/include/coop/net/protocol.h
+@@ -30,7 +30,7 @@ inline constexpr uint32_t kMagic = 0x564D5450u;
+ // This file is past the 1500-line hard cap and stays there: it is the single-feature exception the
+ // rule names. One wire format, whose enum, payload structs and static_asserts are read together;
+ // splitting it would put a kind's number in one file and its bytes in another.
+-inline constexpr uint16_t kProtocolVersion = 208;
++inline constexpr uint16_t kProtocolVersion = 5208;
+ 
+ // Default LAN port (overridable via multivoid.ini "net.port=").
+ inline constexpr uint16_t kDefaultPort = 47621;
+@@ -2068,10 +2068,10 @@ struct PowerPanelPayload {
+     uint8_t  leverSlot;  // 1  -- whose lever made leverBits (0xFF when none)
+     uint8_t  _pad;       // 1
+     uint16_t seq;        // 2
+-    uint16_t ack[4];     // 8  -- by slot (kMaxPeers)
++    uint16_t ack[5];     // 10 -- by slot (kMaxPeers)
+     uint32_t terminal;   // 4  -- op 0, a page press: the portable PC's element id, 0xFFFFFFFF for the laptop
+ };
+-static_assert(sizeof(PowerPanelPayload) == 20, "PowerPanelPayload must be 20 bytes");
++static_assert(sizeof(PowerPanelPayload) == 22, "PowerPanelPayload must be 22 bytes");
+ // A page press through a portable PC that has no element id yet: the host cannot say where it stands.
+ inline constexpr uint32_t kPowerPanelTerminalUnnamed = 0xFFFFFFFEu;
+ 
+@@ -2116,7 +2116,7 @@ struct PowerGridPayload {
+     uint8_t      index;    // 1  -- ops 1..4: the generator's place
+     uint8_t      field;    // 1  -- op 4
+     uint16_t     seq;      // 2  -- ops 1, 2, 4
+-    uint16_t     ack[4];   // 8  -- op 0, by slot (kMaxPeers)
++    uint16_t     ack[5];   // 10 -- op 0, by slot (kMaxPeers)
+     float        damage;   // 4  -- op 3
+     uint8_t      value;    // 1  -- op 4
+     uint8_t      _pad;     // 1
+@@ -2124,7 +2124,7 @@ struct PowerGridPayload {
+ };
+ static_assert(sizeof(PowerGridPuzzle) == 30, "PowerGridPuzzle must be 30 bytes");
+ static_assert(sizeof(PowerGridRow) == 38, "PowerGridRow must be 38 bytes");
+-static_assert(sizeof(PowerGridPayload) == 172, "PowerGridPayload must be 172 bytes");
++static_assert(sizeof(PowerGridPayload) == 174, "PowerGridPayload must be 174 bytes");
+ static_assert(sizeof(PowerGridPayload) <= 256 - 20 - 8, "PowerGridPayload must fit one reliable datagram");
+ 
+ // The coordinate towers (CoordTowerState) by their id; a row past `count` is unused. Op 0, the host's rows, with
+@@ -2161,13 +2161,13 @@ struct CoordTowerPayload {
+     uint8_t       _pad;        // 1
+     int32_t       tower;       // 4  -- ops 1..5: the tower's id
+     uint16_t      seq;         // 2  -- ops 1..5
+-    uint16_t      ack[4];      // 8  -- op 0, by slot (kMaxPeers)
+-    uint16_t      refused[4];  // 8  -- op 0, by slot
++    uint16_t      ack[5];      // 10 -- op 0, by slot (kMaxPeers)
++    uint16_t      refused[5];  // 10 -- op 0, by slot
+     uint16_t      _pad2;       // 2
+     CoordTowerRow rows[kCoordTowers];  // 72
+ };
+ static_assert(sizeof(CoordTowerRow) == 18, "CoordTowerRow must be 18 bytes");
+-static_assert(sizeof(CoordTowerPayload) == 100, "CoordTowerPayload must be 100 bytes");
++static_assert(sizeof(CoordTowerPayload) == 104, "CoordTowerPayload must be 104 bytes");
+ static_assert(sizeof(CoordTowerPayload) <= 256 - 20 - 8, "CoordTowerPayload must fit one reliable datagram");
+ 
+ // The ATV's rig pose, velocity and condition (AtvState), keyed by its Key. A receiver keeps its own
+diff --git a/src/votv-coop/include/coop/net/session.h b/src/votv-coop/include/coop/net/session.h
+index ac8c89aa9..3f95f0344 100644
+--- a/src/votv-coop/include/coop/net/session.h
++++ b/src/votv-coop/include/coop/net/session.h
+@@ -17,7 +17,7 @@
+ #include "coop/net/send_backlog.h"         // the reliable-send delivery guarantee
+ #include "coop/net/send_rate_control.h"    // what each peer's link measures out at
+ #include "coop/net/stream_refusals.h"      // refused pose packets, said once per streak
+-#include "coop/player/players_registry.h"  // kMaxPeers (host + 3 clients = 4)
++#include "coop/player/players_registry.h"  // kMaxPeers (host + 4 clients = 5)
+ 
+ #include <array>
+ #include <atomic>
+@@ -32,7 +32,7 @@
+ 
+ namespace coop::net {
+ 
+-// kMaxPeers (the host + 3 clients) is coop::players::kMaxPeers; the alias sizes this header's
++// kMaxPeers (the host + 4 clients) is coop::players::kMaxPeers; the alias sizes this header's
+ // arrays.
+ inline constexpr uint8_t kMaxPeers = coop::players::kMaxPeers;
+ 
+diff --git a/src/votv-coop/include/coop/player/players_registry.h b/src/votv-coop/include/coop/player/players_registry.h
+index a9dacb67c..a28dea9a3 100644
+--- a/src/votv-coop/include/coop/player/players_registry.h
++++ b/src/votv-coop/include/coop/player/players_registry.h
+@@ -26,8 +26,8 @@ namespace coop::element { class Player; }
+ namespace coop::players {
+ 
+ // Peer session ids: the host is 0, clients count up from 1. Each peer has one local and up to
+-// the maximum minus one puppets; the maximum covers a host and three clients.
+-inline constexpr uint8_t kMaxPeers       = 4;
++// the maximum minus one puppets; the maximum covers a host and four clients.
++inline constexpr uint8_t kMaxPeers       = 5;
+ inline constexpr uint8_t kPeerIdHost     = 0;
+ inline constexpr uint8_t kPeerIdUnknown  = 0xFF;  // not in registry
+ 
+diff --git a/src/votv-coop/include/coop/session/join_seed.h b/src/votv-coop/include/coop/session/join_seed.h
+index 40df7a96d..8a0974391 100644
+--- a/src/votv-coop/include/coop/session/join_seed.h
++++ b/src/votv-coop/include/coop/session/join_seed.h
+@@ -42,7 +42,7 @@ struct LaneAdapter {
+ // One instance per lane (static in the lane's TU).
+ class Seeder {
+ public:
+-    static constexpr int kMaxPeers = 4;  // static_assert'd == net::kMaxPeers in the .cpp
++    static constexpr int kMaxPeers = 5;  // static_assert'd == net::kMaxPeers in the .cpp
+ 
+     explicit Seeder(const LaneAdapter& a) : a_(a) {}
+ 
+diff --git a/src/votv-coop/src/coop/element/registry.cpp b/src/votv-coop/src/coop/element/registry.cpp
+index 2ec3e3251..cfde64697 100644
+--- a/src/votv-coop/src/coop/element/registry.cpp
++++ b/src/votv-coop/src/coop/element/registry.cpp
+@@ -21,7 +21,7 @@ namespace {
+ // from the host range), so band 0 is only ever consumed by a client's pre-slot allocations.
+ constexpr uint32_t kPeerBandCount = coop::players::kMaxPeers;
+ constexpr uint32_t kSlotBandSize  =
+-    (kMaxElements - kHostRangeSize) / kPeerBandCount;  // 32768/4 = 8192
++    (kMaxElements - kHostRangeSize) / kPeerBandCount;  // 32768/5 = 6553
+ 
+ // The [base, end) of the band for a band index (0 is pre-slot, 1 and up are client slots).
+ // The last band absorbs any remainder so the union exactly covers the peer range.
+diff --git a/src/votv-coop/src/coop/session/session_manager.cpp b/src/votv-coop/src/coop/session/session_manager.cpp
+index 72ffdff65..7892023d8 100644
+--- a/src/votv-coop/src/coop/session/session_manager.cpp
++++ b/src/votv-coop/src/coop/session/session_manager.cpp
+@@ -11,6 +11,7 @@
+ #include "coop/net/lobby_announcer.h"
+ #include "coop/net/master_slots.h"  // which master a new lobby, the list and the update check use
+ #include "coop/net/protocol.h"  // kProtocolVersion (the b<N> build rev), kDefaultPort
++#include "coop/player/players_registry.h"  // kMaxPeers -- the default lobby size
+ #include "coop/session/join_progress.h"
+ #include "coop/session/shutdown.h"
+ #include "coop/version.h"  // kGameTarget -- the game half of the Paper-pair identity (CMake-generated)
+@@ -56,7 +57,7 @@ struct DeferredAnnounce {
+     std::string name;
+     std::string world;
+     bool locked = false;
+-    int playersMax = 4;
++    int playersMax = coop::players::kMaxPeers;
+     int directPort = 0;
+ };
+ std::mutex g_deferredMu;
+@@ -315,7 +316,7 @@ void AnnounceEnvHostHidden(const std::string& name, const std::string& world) {
+             if (coop::shutdown::IsShuttingDown()) { g_actionBusy.store(false); return; }
+             const lobby::HostInfo info =
+                 Announcer().Host(masterUrl, name, world,
+-                                 /*locked=*/false, /*playersMax=*/4, 8000);
++                                 /*locked=*/false, /*playersMax=*/coop::players::kMaxPeers, 8000);
+             if (info.ok) {
+                 SetOwnLobbyId(info.lobbyId);  // never list or join our own lobby
+                 Announcer().SetListed(false); // the hide-from-list flag, immediately
+diff --git a/src/votv-coop/src/coop/world/coord_tower_ops.cpp b/src/votv-coop/src/coop/world/coord_tower_ops.cpp
+index 2ddbae2b1..491c399ab 100644
+--- a/src/votv-coop/src/coop/world/coord_tower_ops.cpp
++++ b/src/votv-coop/src/coop/world/coord_tower_ops.cpp
+@@ -39,7 +39,7 @@ namespace R  = ue_wrap::reflection;
+ namespace sg = ue_wrap::script_gate;
+ using coop::net::CoordTowerPayload;
+ 
+-static_assert(coop::net::kMaxPeers <= 4, "CoordTowerPayload's acknowledgements hold four slots");
++static_assert(coop::net::kMaxPeers <= 5, "CoordTowerPayload's acknowledgements hold five slots");
+ 
+ constexpr wchar_t kTowerClass[] = L"coordRadarDish_C";
+ // A slot's ops wait, in arrival order, while the towers have not resolved, their sender has no body here yet (a
+diff --git a/src/votv-coop/src/coop/world/power_grid.cpp b/src/votv-coop/src/coop/world/power_grid.cpp
+index f49421e87..8fc2272c7 100644
+--- a/src/votv-coop/src/coop/world/power_grid.cpp
++++ b/src/votv-coop/src/coop/world/power_grid.cpp
+@@ -41,7 +41,7 @@ namespace sg  = ue_wrap::script_gate;
+ using coop::net::PowerGridPayload;
+ using coop::net::kPowerGridGenerators;
+ 
+-static_assert(coop::net::kMaxPeers <= 4, "PowerGridPayload::ack holds four slots");
++static_assert(coop::net::kMaxPeers <= 5, "PowerGridPayload::ack holds five slots");
+ static_assert(coop::net::kMaxPeers <= 8, "the owed rows are one bit a slot");
+ static_assert(kInputBurst >= coop::net::kPowerPuzzleFields, "a flush of every held field fits one burst");
+ 
+diff --git a/src/votv-coop/src/coop/world/power_panel.cpp b/src/votv-coop/src/coop/world/power_panel.cpp
+index bec192a29..210609786 100644
+--- a/src/votv-coop/src/coop/world/power_panel.cpp
++++ b/src/votv-coop/src/coop/world/power_panel.cpp
+@@ -34,7 +34,7 @@ namespace PC = ue_wrap::power_control;
+ namespace sg = ue_wrap::script_gate;
+ using coop::net::PowerPanelPayload;
+ 
+-static_assert(coop::net::kMaxPeers <= 4, "PowerPanelPayload::ack holds four slots");
++static_assert(coop::net::kMaxPeers <= 5, "PowerPanelPayload::ack holds five slots");
+ static_assert(coop::net::kMaxPeers <= 8, "the owed canonicals are one bit a slot");
+ 
+ constexpr uint8_t kMaskBits = 0x1F;
+diff --git a/src/votv-coop/src/ui/host_save_picker.cpp b/src/votv-coop/src/ui/host_save_picker.cpp
+index 0afbc657a..5bf97a181 100644
+--- a/src/votv-coop/src/ui/host_save_picker.cpp
++++ b/src/votv-coop/src/ui/host_save_picker.cpp
+@@ -7,6 +7,7 @@
+ #include "coop/config/config.h"
+ #include "coop/config/config_registry.h"
+ #include "coop/net/protocol.h"   // kDefaultPort -- was reaching it only transitively
++#include "coop/player/players_registry.h"  // kMaxPeers -- the default lobby size
+ #include "coop/session/host_mode.h"
+ #include "coop/net/master_slots.h"  // the chosen master, where the lobby is announced
+ #include "coop/session/session_manager.h"
+@@ -50,7 +51,7 @@ std::wstring g_conflictSlot;
+ // Lobby host params captured from the server browser on Open().
+ std::string g_hostName = "My VOTV Server";
+ bool g_hostLocked = false;
+-int  g_hostMax = 4;
++int  g_hostMax = coop::players::kMaxPeers;
+ // Connection selector: 0 = AUTOMATIC (P2P/ICE -- direct when the NAT allows it,
+ // relay automatically otherwise; nothing to configure), 1 = DIRECT (LanDirect UDP
+ // listen; needs the port forwarded, and friends join through Direct Connect or the
+@@ -140,7 +141,7 @@ void DoHostNew() {
+ void Open(const std::string& hostName, bool locked, int playersMax) {
+     g_hostName = hostName.empty() ? std::string("My VOTV Server") : hostName;
+     g_hostLocked = locked;
+-    g_hostMax = playersMax > 0 ? playersMax : 4;
++    g_hostMax = playersMax > 0 ? playersMax : coop::players::kMaxPeers;
+     g_selected = -1;
+     g_conflictSlot.clear();
+     // RESOLVED ON OPEN, NEVER IN Render(). `ResolveInt` reaches `ReadIniValue`, which
+diff --git a/src/votv-coop/src/ui/host_session_settings.cpp b/src/votv-coop/src/ui/host_session_settings.cpp
+index ffd8243d9..9bb18d109 100644
+--- a/src/votv-coop/src/ui/host_session_settings.cpp
++++ b/src/votv-coop/src/ui/host_session_settings.cpp
+@@ -9,6 +9,7 @@
+ #include "coop/net/master_slots.h"      // the master this session will be listed on
+ #include "coop/net/lobby_password.h"    // the password the lock mints
+ #include "coop/session/host_mode.h"
++#include "coop/player/players_registry.h"  // kMaxPeers -- the lobby size a host asks for
+ #include "coop/session/session_manager.h"
+ #include "coop/text/utf8_codec.h"
+ #include "ui/host_session_choices.h"     // the two-row selector these questions share
+@@ -464,7 +465,7 @@ void DoHost() {
+         g_connMode == 1 ? coop::session::Reachability::Direct
+                         : coop::session::Reachability::Brokered,
+         !hideFromBrowser};
+-    const bool accepted = sm::HostWithSave(g_choice, serverName, IsLocked(), pw, /*playersMax=*/4,
++    const bool accepted = sm::HostWithSave(g_choice, serverName, IsLocked(), pw, /*playersMax=*/coop::players::kMaxPeers,
+                                            g_shownMasterUrl, mode);
+     // The password is never logged: a log line is the easiest place for it to end up in a
+     // screenshot.
+diff --git a/src/votv-coop/src/ui/server_browser.cpp b/src/votv-coop/src/ui/server_browser.cpp
+index eba3940f2..08d94f9cf 100644
+--- a/src/votv-coop/src/ui/server_browser.cpp
++++ b/src/votv-coop/src/ui/server_browser.cpp
+@@ -13,6 +13,7 @@
+ #include "ui/host_save_picker.h"
+ #include "ui/menu_sfx.h"        // native VOTV button click + rollover sounds
+ #include "coop/net/protocol.h"  // kProtocolVersion (the "Ver" mismatch tint)
++#include "coop/player/players_registry.h"  // kMaxPeers -- the lobby size a host asks for
+ #include "coop/session/session_manager.h"
+ #include "coop/config/config.h"   // local-only ini persistence for the name + last direct address
+ #include "ui/scale.h"
+@@ -149,7 +150,7 @@ void Render() {
+             // Open the save picker (native loadSlots list + New Game); on confirm it
+             // calls HostWithSave -> the harness loads the chosen world then hosts. (The
+             // old immediate HostLobby-on-the-current-world path is gone, RULE 2.)
+-            ui::host_save_picker::Open(g_hostName, g_hostLocked, /*playersMax=*/4);
++            ui::host_save_picker::Open(g_hostName, g_hostLocked, /*playersMax=*/coop::players::kMaxPeers);
+         }
+         ImGui::SameLine(0.0f, S(24.0f));
+         if (ui::menu_sfx::Button("Refresh")) sm::Refresh();

@@ -21,7 +21,7 @@ namespace {
 // from the host range), so band 0 is only ever consumed by a client's pre-slot allocations.
 constexpr uint32_t kPeerBandCount = coop::players::kMaxPeers;
 constexpr uint32_t kSlotBandSize  =
-    (kMaxElements - kHostRangeSize) / kPeerBandCount;  // 32768/4 = 8192
+    (kMaxElements - kHostRangeSize) / kPeerBandCount;  // 32768/5 = 6553
 
 // The [base, end) of the band for a band index (0 is pre-slot, 1 and up are client slots).
 // The last band absorbs any remainder so the union exactly covers the peer range.
